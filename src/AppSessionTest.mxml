@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Application xmlns:mx="http://www.adobe.com/2006/mxml" layout="absolute" applicationComplete="onLoad()">
+
+<mx:Script><![CDATA[
+import simplicite.core.*;
+import mx.collections.ArrayCollection;
+import mx.controls.Menu;
+import mx.controls.Alert;
+import mx.graphics.ImageSnapshot;
+import mx.graphics.codec.PNGEncoder;
+
+private var app:AppSession;
+
+private function onLoad():void {
+	app = new AppSession("designer", "designer", "http://localhost/simplicitews");
+}
+
+private function doLoadGrant():void {
+	app.getGrant(onLoadGrant);
+}
+
+private function onLoadGrant():void {
+	app.info("Login: " + app.grant.login + ", name: " + app.grant.firstname + " " + app.grant.lastname +  ", language: " + app.grant.lang);
+}
+
+private function doLoadMenu():void {
+	app.getMenu(onLoadMenu);
+}
+
+private function onLoadMenu():void {
+	var m:Menu = Menu.createMenu(null, app.menu, true);
+	m.show();
+}
+
+private function doLoadSystemParams():void {
+	app.getSystemParams(onLoadSystemParams);
+}
+
+private function onLoadSystemParams():void {
+	app.info(app.getSystemParam("VERSION"));
+}
+
+private function doLoadTexts():void {
+	app.getTexts(onLoadTexts);
+}
+
+private function onLoadTexts():void {
+	app.info(app.getText("HOME"));
+}
+]]></mx:Script>
+
+<mx:Panel title="Application session API unit tests"
+	width="100%" height="100%"
+	right="0" left="0" top="0" bottom="0"
+	paddingTop="10" paddingBottom="10" paddingLeft="10" paddingRight="10"
+	layout="horizontal" verticalAlign="top">
+
+	<mx:VBox>
+		<mx:Button label="Load grant" click="doLoadGrant()"/>
+		<mx:Button label="Load menu" click="doLoadMenu()"/>
+		<mx:Button label="Load system parameters" click="doLoadSystemParams()"/>
+		<mx:Button label="Load texts" click="doLoadTexts()"/>
+	</mx:VBox>
+
+</mx:Panel>
+
+</mx:Application>

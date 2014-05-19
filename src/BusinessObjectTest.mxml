@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Application xmlns:mx="http://www.adobe.com/2006/mxml" layout="absolute" applicationComplete="onLoad();">
+
+<mx:Script><![CDATA[
+import simplicite.core.*;
+import mx.collections.ArrayCollection;
+import mx.controls.Alert;
+
+private var app:AppSession;
+private var obj:BusinessObject;
+
+private function onLoad():void {
+	app = new AppSession("designer", "designer", "http://localhost:8080/simplicitews");
+	obj = app.getBusinessObject("User");
+	obj.getMetaData(function():void {
+		Alert.show(obj.metadata.label);
+	});
+}
+
+private function doSearch():void {
+	obj.search(onSearch);
+	//obj.search(onSearch, {usr_login: "d%"});
+	//obj.search(onSearch, {row_module_id__mdl_name: "Interface"});
+}
+
+private function onSearch():void {
+	myGrid.dataProvider = new ArrayCollection(obj.list);
+}
+
+private function doReadImage():void {
+	dimg.enabled = false;
+	wimg.enabled = false;
+
+	obj.get(
+		function():void {
+			if (obj.item.usr_image_id != null && obj.item.usr_image_id != "") {
+				img.name = obj.item.usr_image_id.name;
+				img.source = obj.base64Decode(obj.item.usr_image_id.content);
+
+				dimg.enabled = true;
+				wimg.enabled = true;
+			} else {
+				app.info("No image");
+				img.name = "";
+				img.source = null;
+			}
+		},
+		rowId.text,
+		true
+	);
+}
+
+private function doWriteImage():void {
+	obj.item.usr_image_id = obj.buildDocument("usr_image_id", img.name, obj.base64Encode(img.source));
+	obj.update(function():void { obj.info("Saved"); });
+}
+
+private function doLoadImage():void {
+	var f:FileReference = new FileReference();
+	f.addEventListener(Event.SELECT, function(event:Event):void {
+		f.load();
+	});
+	f.addEventListener(Event.COMPLETE, function(event:Event):void {
+		img.name = f.name;
+		img.source = f.data;
+	
+		dimg.enabled = true;
+		wimg.enabled = true;
+	});
+	f.browse();
+}
+
+private function doDownloadImage():void {
+	var f:FileReference = new FileReference();
+	f.save(img.source, img.name);
+}
+
+private function doClearImage():void {
+	dimg.enabled = false;
+	wimg.enabled = true;
+
+	img.name = "";
+	img.source = null;
+}
+]]></mx:Script>
+
+<mx:Panel id="myPanel" title="Business object API unit tests" 
+	width="100%" height="100%"
+	right="0" left="0" top="0" bottom="0"
+	paddingTop="10" paddingBottom="10" paddingLeft="10" paddingRight="10" 
+	layout="horizontal" verticalAlign="top">
+
+	<mx:VBox>
+		<mx:HBox>
+			<mx:DataGrid id="myGrid">
+				<mx:columns>
+					<mx:DataGridColumn headerText="Row ID" dataField="row_id"/>
+					<mx:DataGridColumn headerText="Login" dataField="usr_login"/>
+					<mx:DataGridColumn headerText="First name" dataField="usr_first_name"/>
+					<mx:DataGridColumn headerText="Last name" dataField="usr_last_name"/>
+					<mx:DataGridColumn headerText="Picture ID" dataField="usr_image_id"/>
+					<mx:DataGridColumn headerText="Module" dataField="row_module_id__mdl_name"/>
+				</mx:columns>
+			</mx:DataGrid>
+			<mx:Button label="OK" click="doSearch()"/>
+		</mx:HBox>
+
+		<mx:HBox>
+			<mx:Label text="Row ID"/>
+			<mx:TextInput id="rowId"/>
+			<mx:Button id="rimg" label="Read image" click="doReadImage()"/>
+		</mx:HBox>
+		<mx:Image id="img"/>
+		<mx:HBox>
+			<mx:Button id="cimg" label="Clear image" click="doClearImage()"/>
+			<mx:Button id="limg" label="Load image" click="doLoadImage()"/>
+			<mx:Button id="dimg" label="Save image locally" click="doDownloadImage()" enabled="false"/>
+			<mx:Button id="wimg" label="Write image" click="doWriteImage()" enabled="false"/>
+		</mx:HBox>
+	</mx:VBox>
+</mx:Panel>
+
+</mx:Application>

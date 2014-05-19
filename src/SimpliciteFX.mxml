@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Application xmlns:mx="http://www.adobe.com/2006/mxml"
+	layout="absolute"
+	horizontalAlign="left" verticalAlign="top"
+	applicationComplete="onLoad();">
+
+<mx:Style source="../assets/application.css"/>
+
+<mx:Script><![CDATA[
+import simplicite.core.*;
+import simplicite.ui.*;
+import mx.collections.ArrayCollection;
+import mx.controls.Menu;
+import mx.containers.Accordion;
+import mx.events.MenuEvent;
+import mx.events.ListEvent;
+import mx.events.ItemClickEvent;
+import mx.controls.Alert;
+import mx.controls.LinkButton;
+
+import mx.containers.TitleWindow;
+import mx.managers.PopUpManager;
+import mx.containers.Form;
+
+private var login:String;
+private var password:String;
+private var baseURL:String;
+
+private var app:AppSession;
+private var obj:BusinessObject;
+
+private var internal:Boolean;
+
+private function onLoad():void {
+	internal = (Application.application.parameters.approot != null);
+	
+	if (internal)
+		loadGrant();
+	else
+		loginPopup();
+}
+
+private var ch:CommonHelper;
+private var lw:TitleWindow;
+
+private function loginPopup():void {
+	ch = new CommonHelper();
+	
+	lw = TitleWindow(PopUpManager.createPopUp(this, TitleWindow, true));
+	lw.showCloseButton = false;
+	ch.initLoginForm(lw, loginSubmitted);
+	PopUpManager.centerPopUp(lw);
+}
+
+private function loginSubmitted():void {
+	login = ch.getLoginFromLoginForm();
+	password = ch.getPasswordFromLoginForm();
+	baseURL = ch.getBaseURLFromLoginForm();
+	
+	loadGrant();
+	PopUpManager.removePopUp(lw);
+}
+	
+private function loadGrant():void {
+	app = new AppSession(login, password, baseURL);
+	app.getGrant(onLoadGrant);
+}
+
+private function onLoadGrant():void {
+	userFlag.source = "images/" + app.grant.lang + ".gif";
+	userName.htmlText = "<b>" + app.grant.firstname + " " + app.grant.lastname + "</b> (" + app.grant.login + ")";
+
+	app.getSystemParams(onLoadSystemParams);
+	app.getMenu(onLoadMenu);
+	app.getTexts(onLoadTexts);
+}
+
+private function onLoadMenu():void {
+	menuBar.dataProvider = app.menu;
+}
+
+private function onLoadSystemParams():void {
+	foot.htmlText = app.getSystemParam("VERSION");
+}
+
+private function onLoadTexts():void {
+	homeTab.label = app.getText("HOME");
+	
+	if (internal) {
+		logoutLink.label = app.getText("QUIT");
+	} else {
+		logoutLink.enabled = false;
+	}
+}
+
+private function menuItemClicked(event:MenuEvent):void {
+	obj = new BusinessObject(event.item.data, "fx_" + event.item.data, login, password, baseURL);
+	obj.getMetaData(onLoadObjectMetaData);
+}
+
+private function onLoadObjectMetaData():void {
+	var objectTab:HBox = HBox(tabs.getChildByName(obj.metadata.name));
+	if (objectTab == null) {
+		objectTab = new HBox();
+		objectTab.name = obj.metadata.name;
+		objectTab.label = obj.metadata.label;
+		objectTab.styleName = "objectTab";
+		objectTab.percentWidth = 100;
+		objectTab.percentHeight = 100;
+	
+		var objectAccordion:Accordion = new Accordion();
+		objectAccordion.styleName = "objectAccordion";
+		objectAccordion.percentWidth = 100;
+		objectAccordion.percentHeight = 100;
+		
+		objectTab.addChild(objectAccordion);
+
+		tabs.addChild(objectTab);
+		//objectAccordion.validateNow();
+	
+		var objUIHelper:BusinessObjectHelper = new BusinessObjectHelper(app, obj);
+		
+		objUIHelper.initHelp(objectAccordion);
+		objUIHelper.initSearchForm(objectAccordion, searchDone);
+		objUIHelper.initListBox(objectAccordion, getDone);
+		objUIHelper.initEditForm(objectAccordion);
+		
+		objectAccordion.getHeaderAt(2).enabled = false;
+		objectAccordion.getHeaderAt(3).enabled = false;
+	}
+
+	tabs.selectedChild = objectTab;
+}
+
+private function searchDone():void {
+	Accordion((tabs.selectedChild as HBox).getChildAt(0)).selectedIndex = 2;
+	Accordion((tabs.selectedChild as HBox).getChildAt(0)).getHeaderAt(2).enabled = true;
+}
+
+private function getDone():void {
+	Accordion((tabs.selectedChild as HBox).getChildAt(0)).selectedIndex = 3;
+	Accordion((tabs.selectedChild as HBox).getChildAt(0)).getHeaderAt(3).enabled = true;
+}
+]]></mx:Script>
+
+<mx:VBox
+	width="100%" height="100%"
+	right="0" left="0" top="0" bottom="0"
+	paddingTop="5" paddingBottom="5" paddingLeft="10" paddingRight="10">
+	
+	<mx:HBox width="100%">
+		<mx:Image source="images/logo.png"/>
+		<mx:VBox width="100%" height="100%" horizontalAlign="right" verticalAlign="bottom">
+			<mx:HBox>
+				<mx:LinkButton id="logoutLink" click="navigateToURL(new URLRequest('../logout.jsp'), '_self');"/>
+			</mx:HBox>
+			<mx:HBox>
+				<mx:Image id="userFlag"/>
+				<mx:Text id="userName"/>
+			</mx:HBox>
+		</mx:VBox>
+	</mx:HBox>
+	
+	<mx:MenuBar id="menuBar" width="100%" alpha="1" itemClick="menuItemClicked(event)"/>
+
+	<mx:TabNavigator id="tabs" width="100%" height="100%">
+
+		<mx:HBox id="homeTab"
+			paddingTop="0" paddingBottom="5" paddingLeft="5" paddingRight="5"
+			verticalAlign="top">
+			<mx:Image source="images/home.png"/>
+		</mx:HBox>
+
+	</mx:TabNavigator>
+	
+	<mx:Text id="foot"/>
+	
+</mx:VBox>
+
+</mx:Application>

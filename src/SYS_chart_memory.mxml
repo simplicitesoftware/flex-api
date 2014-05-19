@@ -1,0 +1,445 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Application xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:ui="simplicite.ui.*"
+	layout="absolute"
+	horizontalAlign="left"
+	verticalAlign="top"
+	backgroundColor="white"
+	applicationComplete="onLoad();">
+
+<mx:Script><![CDATA[
+import mx.core.FlexGlobals;
+import mx.controls.Alert;
+import mx.collections.ArrayCollection;
+import mx.formatters.DateFormatter;
+import mx.charts.LineChart;
+import mx.charts.chartClasses.IAxis;
+import mx.events.CalendarLayoutChangeEvent;
+import mx.events.ItemClickEvent;
+import simplicite.core.*;
+
+const YAXIS_LINEAR:String = "LINEAR";
+const YAXIS_LOG10:String  = "LOG10";
+
+const LOGGER_ON_COLOR:uint  = 0x00FF00;
+const LOGGER_OFF_COLOR:uint = 0xFF0000;
+
+// JVM Memory
+const FILTER_JVM:String = "logMemory";
+const TITLE_JVM:String  = "Memory size (ko)";
+const SERIE1_JVM:String = "Free Memory";
+const SERIE2_JVM:String = "Heap Size Max";
+const SERIE3_JVM:String = "Allocated Memory";
+const SERIE4_JVM:String = "Total Free Memory";
+const SERIE5_JVM:String = "";
+const SERIE6_JVM:String = "";
+
+// Cache Memory
+const FILTER_CACHE:String = "logMemoryCache";
+const TITLE_CACHE:String  = "Quantity";
+const SERIE1_CACHE:String = "Running Object Instances";
+const SERIE2_CACHE:String = "Max Objects";
+const SERIE3_CACHE:String = "Running Grant Sessions";
+const SERIE4_CACHE:String = "Max Grants";
+const SERIE5_CACHE:String = "Running Process Instances";
+const SERIE6_CACHE:String = "Max Processes";
+
+// Disk memory
+const FILTER_DISK:String = "logMemoryDisk";
+const TITLE_DISK:String  = "Disk size (Mo)";
+const SERIE1_DISK:String = "Total space";
+const SERIE2_DISK:String = "Free space";
+const SERIE3_DISK:String = "Usable space";
+const SERIE4_DISK:String = "";
+const SERIE5_DISK:String = "";
+const SERIE6_DISK:String = "";
+
+// Doc memory
+const FILTER_DOC:String = "logMemoryDoc";
+const TITLE_DOC:String  = "Doc size (Mo)";
+const SERIE1_DOC:String = "Object Cache";
+const SERIE2_DOC:String = "DBDoc";
+const SERIE3_DOC:String = "Recycle Bin";
+const SERIE4_DOC:String = "Indexes";
+const SERIE5_DOC:String = "Temp Bin";
+const SERIE6_DOC:String = "";
+
+[Bindable] private var logsData:ArrayCollection = new ArrayCollection([
+	{log_date:"2011-01-01 00:00:00", log_serie1:1, log_serie2:1, log_serie3:1, log_serie4:1, log_serie5:1, log_serie6:1},
+	{log_date:"2011-01-01 00:01:00", log_serie1:1, log_serie2:1, log_serie3:1, log_serie4:1, log_serie5:1, log_serie6:1},
+	]);
+[Bindable] private var selectedMem:String = FILTER_JVM;
+[Bindable] private var selectedAxis:String = YAXIS_LINEAR;
+	
+private var logs:Object;
+private var app:AppSession;
+private var reloadTimer:Timer = new Timer(60000, 0);
+
+private function onLoad():void {
+	// Load Logger object
+	try {
+		app = new AppSession();
+		app.getGrant(grantLoaded);
+		logs = app.getBusinessObject("AppLoggerMemory");
+	    logs.getMetaData(onGetMetaData);
+	}
+	catch(err:Error) {
+		Alert.show(err.toString(),"Error");
+	}
+	
+	// Launch a timer to reload chart
+	reload.text = (reloadTimer.delay/1000).toString();
+	reloadTimer.addEventListener("timer", timerHandler);
+	reloadTimer.start();
+
+	// Display chart on  current date
+	useDate(null);
+}
+
+private function grantLoaded():void {
+	app.getSystemParams(OnSysParamsLoaded);
+}
+private function OnSysParamsLoaded():void {
+	// Logger is active ?
+	activ.selected = (app.getSystemParam("LOG_MEMORY")=="yes");
+	activate(false);
+}
+private function onGetMetaData():void {
+	//TODO labels from metadata.actions
+	btnGC.label = "Force a garbage collection";
+	btnRC.label = "Reset the server cache";
+	btnDD.label = "Synchronize the DBDoc";
+	btnRB.label = "Clear the DBDoc recycle bin";
+	btnRI.label = "Rebuild DBDoc indexes";
+	btnRO.label = "Rebuild object indexes";
+}
+
+private function timerHandler(event:TimerEvent):void {
+	chartRefresh();
+}
+
+private function timerRefresh():void {
+	// Eval/Fix the entered timer field
+	var delay:int = parseInt(reload.text);
+	if (delay==NaN || delay<0) delay = 0;
+	if (delay!=0 && delay<30) delay = 30;
+	reload.text = delay.toString();
+	
+	// Delay has changed ?
+	delay = delay*1000;	// ms
+	if (reloadTimer.delay!=delay) {
+		if (delay==0) {
+			reloadTimer.stop();
+		}
+		else {
+			reloadTimer.delay = delay;
+			reloadTimer.reset();
+			reloadTimer.start();
+		}
+	}
+}
+		
+private function onSearch():void {
+	if (logs.list!=null && logs.list.length>0) {
+		logsData = new ArrayCollection(logs.list);
+	}
+	else {
+		Alert.show("No data", "Info");
+	}
+}
+
+private function parseDate(s:String):Date { 
+	var a:Array = s.split(" ");
+	var d:Array = a[0].split("-");
+	var h:Array = a[1].split(":");
+	var newDate:Date = new Date(d[0], d[1]-1, d[2], h[0], h[1], h[2]);
+	return newDate;
+}
+
+private function parseY(y:Number):Number {
+	return y; 
+}
+private function parseYLabel(labelValue:Number, previousValue:Object, axis:IAxis):String {
+	return labelValue.toString();
+}
+private function parseLogY(y:Number):Number {
+	return y<1 ? 0 : Math.log(y) * Math.LOG10E; 
+}
+private function parseLogYLabel(labelValue:Number, previousValue:Object, axis:IAxis):String {
+	return (Math.pow(10,labelValue)).toString();
+}
+
+private function useDate(eventObj:CalendarLayoutChangeEvent):void {
+	var dt:Date = null;
+	if (eventObj!=null) { dt = eventObj.currentTarget.selectedDate; }
+	if (dt==null) { dt = new Date(); }
+
+	var y:String = dt.getFullYear().toString();
+	var m:String = (dt.getMonth()+1).toString();
+	var d:String = dt.getDate().toString();
+	if (m.length==1) m = "0"+m;
+	if (d.length==1) d = "0"+d;
+	
+	fromDate.text = y+"-"+m+"-"+d+" 00:00:00";
+	toDate.text   = y+"-"+m+"-"+d+" 23:59:59";
+	
+	chartRefresh();
+}
+
+private function handleMem(event:ItemClickEvent):void {
+	selectedMem = event.currentTarget.selectedValue;
+	selectedAxis = (selectedMem==FILTER_CACHE ? YAXIS_LOG10 : YAXIS_LINEAR);
+	chartRefresh();
+}
+private function handleAxis(event:ItemClickEvent):void {
+	selectedAxis = event.currentTarget.selectedValue;
+	chartRefresh();
+}
+
+private function activate(sync:Boolean):void {
+	sync = sync ? activateLogger(activ.selected) : true;
+	if (activ.selected && sync) {
+		activ.label = "Running";
+		activ.setStyle("color", LOGGER_ON_COLOR);
+	}
+	if (!activ.selected && sync) {
+		activ.label = "Stopped";
+		activ.setStyle("color", LOGGER_OFF_COLOR);
+	}
+}
+
+private function activateLogger(onoff:Boolean):Boolean {
+	return doAction(onoff ? "LoggerMemoryStart" : "LoggerMemoryStop");
+}
+
+private function doAction(actName:String):Boolean {
+	try {
+		logs.action(onAction, actName, null);
+	}
+	catch(err:Error) {
+		Alert.show(err.toString(),"Error");
+		return false;
+	}
+	return true;
+}
+
+private function onAction(result:String):void {
+	if (result==null || result.length==0) result = "Ok";
+	Alert.show(result,"Info");
+}
+
+private function chartRefresh():void {
+	// Period
+	var d1:String = fromDate.text;
+	var d2:String = toDate.text;
+
+	// Dynamic labels
+	if (selectedMem == FILTER_JVM) {
+		vaxis.title = TITLE_JVM;
+		serie1.displayName = SERIE1_JVM;
+		serie2.displayName = SERIE2_JVM;
+		serie3.displayName = SERIE3_JVM;
+		serie4.displayName = SERIE4_JVM;
+		serie5.displayName = SERIE5_JVM;
+		serie6.displayName = SERIE6_JVM;
+	} else if (selectedMem == FILTER_CACHE) {
+		vaxis.title = TITLE_CACHE;
+		serie1.displayName = SERIE1_CACHE;
+		serie2.displayName = SERIE2_CACHE;
+		serie3.displayName = SERIE3_CACHE;
+		serie4.displayName = SERIE4_CACHE;
+		serie5.displayName = SERIE5_CACHE;
+		serie6.displayName = SERIE6_CACHE;
+	} else if (selectedMem == FILTER_DISK) {
+		vaxis.title = TITLE_DISK;
+		serie1.displayName = SERIE1_DISK;
+		serie2.displayName = SERIE2_DISK;
+		serie3.displayName = SERIE3_DISK;
+		serie4.displayName = SERIE4_DISK;
+		serie5.displayName = SERIE5_DISK;
+		serie6.displayName = SERIE6_DISK;
+	} else {
+		vaxis.title = TITLE_DOC;
+		serie1.displayName = SERIE1_DOC;
+		serie2.displayName = SERIE2_DOC;
+		serie3.displayName = SERIE3_DOC;
+		serie4.displayName = SERIE4_DOC;
+		serie5.displayName = SERIE5_DOC;
+		serie6.displayName = SERIE6_DOC;
+	}
+
+	// Dynamic Y axis Linear/Log10
+	if (selectedAxis == YAXIS_LINEAR) {
+		vaxis.parseFunction = parseY;
+		vaxis.labelFunction = parseYLabel;
+	} else {
+		vaxis.parseFunction = parseLogY;
+		vaxis.labelFunction = parseLogYLabel;
+	}	
+
+	timerRefresh();
+
+	// Search for new data
+	logs.search(onSearch, {"dmin__log_date":d1, "dmax__log_date":d2, "log_method":selectedMem});
+}
+
+/* Global rendering:
+   ==================================================================
+   | Memory  Logger    | Memory Chart                               |
+   |-------------------|--------------------------------------------|
+   |[] Running/Stopped |                                            |
+   |===================|  ^                                         |
+   | Memory  | Axis    |  |                                         |
+   |---------|---------|  |                                         |
+   |O JVM    |O Linear |  |                                         |
+   |O Cache  |O Log 10 |  |                                         |
+   |O Disk   |         |  |                                         |
+   |O Doc    |         |  |                                         |
+   |===================|  |                                         |
+   | Period    [Refresh|  |             LineChart                   |
+   |-------------------|  |                                         |
+   |   DateChooser     |  |                                         |
+   |   +---------+     |  |                                         |
+   |   |         |     |  |                                         |
+   |   |     []  |     |  |                                         |
+   |   +---------+     |  |                                         |
+   |   From ______     |  |                                         |
+   |     To ______     |  |                                         |
+   |  Timer ___        |  |                                         |
+   |===================|  +-------------------------------------->  |
+   |                   |                                            |
+   |   Actions         |                                            |
+   |                   |                Legend                      |
+   ==================================================================
+*/ 
+]]></mx:Script>
+
+<mx:HBox backgroundColor="white" verticalAlign="middle"
+   width="100%" height="100%" paddingTop="0" paddingLeft="0" paddingRight="0" paddingBottom="0">
+
+<mx:VBox backgroundColor="white" horizontalAlign="center"
+   width="20%" height="100%" paddingTop="0" paddingLeft="0" paddingRight="0" paddingBottom="0">
+	<mx:Panel title="Memory Logger"
+	width="100%" height="5%" paddingTop="0" paddingLeft="5" paddingRight="5" paddingBottom="0">
+		<mx:Form>
+			<mx:CheckBox id="activ" label="..." click="activate(true);"/>
+		</mx:Form>
+	</mx:Panel>
+
+	<mx:HBox width="100%" height="10%">
+		<mx:Panel title="Memory"
+		width="50%" height="100%" paddingTop="2" paddingLeft="5" paddingRight="5" paddingBottom="2">
+			<mx:RadioButtonGroup id="memtype" itemClick="handleMem(event);"	selectedValue="{selectedMem}"/>
+			<mx:RadioButton	groupName="memtype"	id="jvm" value="logMemory" label="JVM"/>
+			<mx:RadioButton	groupName="memtype"	id="cache" value="logMemoryCache" label="Cache"/>
+			<mx:RadioButton	groupName="memtype"	id="disk" value="logMemoryDisk" label="Disk"/>
+			<mx:RadioButton	groupName="memtype"	id="doc" value="logMemoryDoc" label="Doc"/>
+		</mx:Panel>
+		<mx:Panel title="Axis"
+		width="50%" height="100%" paddingTop="2" paddingLeft="5" paddingRight="5" paddingBottom="2">
+			<mx:RadioButtonGroup id="axistype" itemClick="handleAxis(event);" selectedValue="{selectedAxis}"/>
+			<mx:RadioButton	groupName="axistype" id="linear" value="LINEAR" label="Linear"/>
+			<mx:RadioButton	groupName="axistype" id="log10"	value="LOG10" label="Log 10"/>
+		</mx:Panel>
+	</mx:HBox>
+
+	<ui:ButtonPanel title="Period" width="100%" height="85%" horizontalCenter="0" verticalCenter="0"
+		buttonClick="chartRefresh()" buttonLabel="Refresh" buttonPadding="5">
+    <!--
+	<mx:Panel title="Period"
+	width="100%" height="85%" paddingTop="0" paddingLeft="5" paddingRight="5" paddingBottom="0">
+	-->
+		<mx:Form>
+			<mx:DateChooser id="date1" change="useDate(event)"/>
+			<mx:FormItem label="From">
+				<mx:TextInput id="fromDate" width="125" toolTip="Min datetime filter to search memory logs"/>
+			</mx:FormItem>
+			<mx:FormItem label="To">
+				<mx:TextInput id="toDate" width="125" toolTip="Max datetime filter to search memory logs"/>
+			</mx:FormItem>
+			<mx:FormItem label="Timer">
+				<mx:TextInput id="reload" width="50" toolTip="Reload the chart periodically (in seconds)"/>
+			</mx:FormItem>
+		    <!--
+			<mx:FormItem>
+				<mx:Button label="Refresh" click="chartRefresh()"/>
+			</mx:FormItem>
+			-->
+		</mx:Form>
+    <!--
+	</mx:Panel>
+	-->
+	</ui:ButtonPanel>
+	<mx:Panel title="Server actions"
+	width="100%" height="15%" paddingTop="0" paddingLeft="5" paddingRight="5" paddingBottom="0">
+		<mx:ControlBar direction="vertical" horizontalAlign="center" width="100%">
+			<mx:Button id="btnGC" label="..." width="100%" click="doAction('SYS_FORCE_GC')" />
+			<mx:Button id="btnRC" label="..." width="100%" click="doAction('SYS_RESET_CACHE')" />
+			<mx:Button id="btnDD" label="..." width="100%" click="doAction('ERASE_DEAD_DOC')" />
+			<mx:Button id="btnRB" label="..." width="100%" click="doAction('SYS_CLEAR_RECBIN')" />
+			<mx:Button id="btnRI" label="..." width="100%" click="doAction('rebuildIndex')" />
+			<mx:Button id="btnRO" label="..." width="100%" click="doAction('rebuildObjectIndex')" />
+		</mx:ControlBar>
+	</mx:Panel>
+</mx:VBox>
+
+<mx:Panel title="Memory Chart" horizontalAlign="center"
+   width="80%" height="100%" paddingTop="0" paddingLeft="0" paddingRight="0" paddingBottom="0">
+
+<mx:LineChart id="memoryChart" dataProvider="{logsData}" showDataTips="true"
+   width="100%" height="100%" paddingTop="0" paddingLeft="0" paddingRight="0" paddingBottom="0">
+
+	<mx:horizontalAxis>
+		<mx:DateTimeAxis id="haxis"	title="Date/Time"
+			parseFunction="parseDate" dataUnits="minutes" displayLocalTime="true"/>
+	</mx:horizontalAxis>
+	<mx:horizontalAxisRenderers>
+		<mx:AxisRenderer axis="{haxis}" canDropLabels="true"/>
+	</mx:horizontalAxisRenderers>
+			
+	<mx:verticalAxis>
+		<!-- LogAxis not works fine on Flex4 => manual calculation in LinearAxis
+		<mx:LogAxis id="vaxis" title="" interval="10"/> 
+		-->
+		<mx:LinearAxis id="vaxis" title="" parseFunction="parseY" labelFunction="parseYLabel"/>
+	</mx:verticalAxis>
+
+	<mx:series> 
+		<mx:LineSeries id="serie1" displayName="" xField="log_date" yField="log_serie1"	showDataEffect="fade">
+			<mx:lineStroke>
+				<mx:Stroke color="0x88FF88" weight="2" alpha="0.6" />
+			</mx:lineStroke>
+		</mx:LineSeries>
+		<mx:LineSeries id="serie2" displayName="" xField="log_date"	yField="log_serie2"	showDataEffect="fade"> 
+			<mx:lineStroke>
+				<mx:Stroke color="0x00FF00" weight="2" alpha="0.6" />
+			</mx:lineStroke>
+		</mx:LineSeries>
+		<mx:LineSeries id="serie3" displayName="" xField="log_date" yField="log_serie3" showDataEffect="fade">
+			<mx:lineStroke>
+				<mx:Stroke color="0xFF8888" weight="2" alpha="0.6" />
+			</mx:lineStroke>
+		</mx:LineSeries>
+		<mx:LineSeries id="serie4" displayName="" xField="log_date" yField="log_serie4" showDataEffect="fade">
+			<mx:lineStroke>
+				<mx:Stroke color="0xFF0000" weight="2" alpha="0.6" />
+			</mx:lineStroke>
+		</mx:LineSeries>
+		<mx:LineSeries id="serie5" displayName="" xField="log_date" yField="log_serie5" showDataEffect="fade">
+			<mx:lineStroke>
+				<mx:Stroke color="0x8888FF" weight="2" alpha="0.6" />
+			</mx:lineStroke>
+		</mx:LineSeries>
+		<mx:LineSeries id="serie6" displayName="" xField="log_date" yField="log_serie6" showDataEffect="fade">
+			<mx:lineStroke>
+				<mx:Stroke color="0x0000FF" weight="2" alpha="0.6" />
+			</mx:lineStroke>
+		</mx:LineSeries>
+	</mx:series>
+</mx:LineChart>
+
+<mx:Legend dataProvider="{memoryChart}" direction="horizontal"/>
+
+</mx:Panel>
+</mx:HBox>
+</mx:Application>

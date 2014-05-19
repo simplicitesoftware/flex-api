@@ -1,0 +1,40 @@
+MenuBar {
+	fontWeight: bold;
+}
+MenuBarItem {
+	fontWeight: normal;
+}
+.objectTab {
+	paddingTop: 0px;
+	paddingBottom: 5px;
+	paddingLeft: 5px;
+	paddingRight: 5px;
+	verticalAlign: top;
+}
+.objectAccordion {
+	paddingTop: 0px;
+	paddingBottom: 0px;
+	paddingLeft: 0px;
+	paddingRight: 0px;
+	verticalAlign: top;
+}
+.searchBox {
+}
+.searchForm {
+}
+.listBox {
+	paddingTop: 5px;
+	paddingBottom: 5px;
+	paddingLeft: 5px;
+	paddingRight: 5px;
+	verticalAlign: top;
+}
+.editBox {
+	backgroundColor: #F7F7F7;
+}
+.editForm {
+	backgroundColor: #FFFFFF;
+}
+.editLinks {
+	backgroundColor: #FFFFFF;
+}

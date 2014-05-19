@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Application xmlns:mx="http://www.adobe.com/2006/mxml"
+	layout="absolute"
+	horizontalAlign="left"
+	verticalAlign="top"
+	backgroundColor="white"
+	applicationComplete="onLoad();">
+
+<mx:Script><![CDATA[
+import simplicite.core.*;
+import mx.rpc.AsyncResponder;
+import mx.rpc.AsyncToken;
+import mx.olap.OLAPQuery;
+import mx.olap.OLAPSet;
+import mx.olap.IOLAPQuery;
+import mx.olap.IOLAPQueryAxis;
+import mx.olap.IOLAPCube;
+import mx.olap.OLAPResult;
+import mx.events.CubeEvent;
+import mx.controls.Alert;
+import mx.collections.ArrayCollection;
+
+[Bindable]
+private var testData:ArrayCollection;
+
+private var logs:Object;
+
+private function onLoad():void {
+	logs = new BusinessObject("AppLogger");
+	logs.getMetaData(onLoadMetaData);
+}
+
+private function onLoadMetaData():void {
+	logs.getCrosstabData(onLoadCrosstabData, "LOG");
+}
+
+private function onLoadCrosstabData():void {
+	testData = new ArrayCollection(logs.crosstabdata);
+    testCube.refresh();
+}
+
+private function getQuery(cube:IOLAPCube):IOLAPQuery {
+    var query:OLAPQuery = new OLAPQuery;
+    
+    var rowQueryAxis:IOLAPQueryAxis = query.getAxis(OLAPQuery.ROW_AXIS);
+    var subjectSet:OLAPSet = new OLAPSet;
+    subjectSet.addElements(cube.findDimension("SubjectDim").findAttribute("Subject").children);
+    var methodSet:OLAPSet = new OLAPSet;
+    methodSet.addElements(cube.findDimension("MethodDim").findAttribute("Method").children);
+    rowQueryAxis.addSet(subjectSet.crossJoin(methodSet));
+    
+    var colQueryAxis:IOLAPQueryAxis = query.getAxis(OLAPQuery.COLUMN_AXIS);         
+    var colSet:OLAPSet= new OLAPSet;
+    colSet.addElements(cube.findDimension("UserDim").findAttribute("User").children);
+    colQueryAxis.addSet(colSet);
+    
+    return query;       
+}
+
+private function runQuery(event:CubeEvent):void {
+    var cube:IOLAPCube = IOLAPCube(event.currentTarget);
+    var query:IOLAPQuery = getQuery(cube);
+    var token:AsyncToken = cube.execute(query);
+    token.addResponder(new AsyncResponder(showResult, showFault));
+}
+
+private function showFault(result:Object, token:Object):void {
+    Alert.show("Error in query.");
+}
+
+private function showResult(result:Object, token:Object):void {
+    if (!result) {
+        Alert.show("No results from query.");
+        return;
+    }
+    testGrid.dataProvider= result as OLAPResult;            
+}        
+]]></mx:Script>
+
+<mx:OLAPCube name="FlatSchemaCube" 
+	dataProvider="{testData}" 
+	id="testCube"
+	complete="runQuery(event);">
+         
+	<mx:OLAPDimension name="SubjectDim">
+		<mx:OLAPAttribute name="Subject" dataField="log_subject"/>
+		<mx:OLAPHierarchy name="SubjectHier" hasAll="true">
+			<mx:OLAPLevel attributeName="Subject"/>
+		</mx:OLAPHierarchy>
+	</mx:OLAPDimension>
+	
+	<mx:OLAPDimension name="MethodDim">
+		<mx:OLAPAttribute name="Method" dataField="log_method"/>
+		<mx:OLAPHierarchy name="MethodHier" hasAll="true">
+			<mx:OLAPLevel attributeName="Method"/>
+		</mx:OLAPHierarchy>
+	</mx:OLAPDimension>
+	
+	<mx:OLAPDimension name="UserDim">
+		<mx:OLAPAttribute name="User" dataField="log_user"/>
+		<mx:OLAPHierarchy name="UserHier" hasAll="true">
+			<mx:OLAPLevel attributeName="User"/>
+		</mx:OLAPHierarchy> 
+	</mx:OLAPDimension>
+	
+	<mx:OLAPMeasure name="Value" 
+		dataField="value" 
+		aggregator="SUM"/>
+
+</mx:OLAPCube>
+
+<mx:OLAPDataGrid id="testGrid"
+	width="100%" height="100%"
+	paddingTop="0" paddingLeft="0" paddingRight="0" paddingBottom="5"/>
+
+</mx:Application>

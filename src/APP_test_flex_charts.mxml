@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Application xmlns:mx="http://www.adobe.com/2006/mxml"
+	layout="absolute"
+	horizontalAlign="left"
+	verticalAlign="top"
+	backgroundColor="white"
+	applicationComplete="onLoad();">
+
+<mx:Script><![CDATA[
+import simplicite.core.*;
+import mx.charts.*;
+import mx.controls.Alert;
+import mx.collections.ArrayCollection;
+import mx.formatters.DateFormatter;
+
+[Bindable]
+private var logsData:ArrayCollection;
+
+private var logs:Object;
+	
+private function onLoad():void {
+	logs = new BusinessObject("AppLoggerLogon");
+	logs.getMetaData(onLoadMetaData);
+}
+
+private function onLoadMetaData():void {
+	logs.getCrosstabData(onLoadCrosstabData, "LOG");
+}
+
+private function onLoadCrosstabData():void {
+	logsData = new ArrayCollection(logs.crosstabdata);
+}
+]]></mx:Script>
+
+<mx:VBox width="100%" height="100%" backgroundColor="white" verticalAlign="middle" paddingTop="0" paddingLeft="0" paddingRight="0" paddingBottom="0">
+	<mx:HBox width="100%" height="100%" backgroundColor="white" verticalAlign="middle" paddingTop="0" paddingLeft="0" paddingRight="0" paddingBottom="0">
+		<mx:PieChart id="pie1" 
+			dataProvider="{logsData}" 
+			showDataTips="true"
+			width="100%" height="100%"
+			paddingTop="0" paddingLeft="0" paddingRight="0" paddingBottom="0">
+			<mx:series>
+				<mx:PieSeries 
+					field="value" 
+					labelField="log_user" 
+					labelPosition="callout"/>
+			</mx:series>
+		</mx:PieChart>
+	</mx:HBox>
+	<mx:HBox width="100%" height="100%" backgroundColor="white" verticalAlign="middle" paddingTop="0" paddingLeft="0" paddingRight="0" paddingBottom="0">
+		<mx:LineChart id="lin1"
+			dataProvider="{logsData}"
+			showDataTips="true"
+			width="100%" height="100%"
+			paddingTop="0" paddingLeft="0" paddingRight="0" paddingBottom="0">
+			<mx:horizontalAxis>
+				<mx:CategoryAxis
+					dataProvider="{logsData}"
+					categoryField="log_user"/>
+			</mx:horizontalAxis>
+			<mx:series>
+				<mx:LineSeries 
+					dataProvider="{logsData}"
+					yField="value"/>
+			</mx:series>
+		</mx:LineChart>
+		<mx:ColumnChart id="bar1"
+			dataProvider="{logsData}"
+			showDataTips="true"
+			width="100%" height="100%"
+			paddingTop="0" paddingLeft="0" paddingRight="0" paddingBottom="0">
+			<mx:horizontalAxis>
+				<mx:CategoryAxis
+					dataProvider="{logsData}"
+					categoryField="log_user"/>
+			</mx:horizontalAxis>
+			<mx:series>
+				<mx:ColumnSeries
+					dataProvider="{logsData}"
+					yField="value"/>
+			</mx:series>
+		</mx:ColumnChart>
+	</mx:HBox>
+</mx:VBox>
+
+</mx:Application>

@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Application xmlns:mx="http://www.adobe.com/2006/mxml"
+	layout="absolute"
+	horizontalAlign="left"
+	verticalAlign="top"
+	backgroundColor="white"
+	applicationComplete="onLoad();">
+
+<mx:Script><![CDATA[
+import simplicite.core.*;
+import simplicite.ui.*;
+import mx.controls.Alert;
+import mx.controls.TextInput;
+import mx.controls.RadioButton;
+import mx.controls.RadioButtonGroup;
+import mx.controls.dataGridClasses.DataGridColumn;
+import mx.collections.ArrayCollection;
+import flash.external.ExternalInterface;
+import mx.events.ItemClickEvent;
+import mx.events.ListEvent;
+import mx.containers.FormItem;
+
+private var a:AppSession;
+private var o:BusinessObject;
+
+private function onLoad():void {
+	a = new AppSession();
+	a.getGrant(onLoadGrant);
+}
+
+private function onLoadGrant():void {
+	a.getTexts(onLoadTexts);
+}
+
+private function onLoadTexts():void {
+	changeObject(Application.application.parameters.object, Application.application.parameters.inst);
+}
+
+public function changeObject(objectName:String, objectInstance:String):void {
+	o = new BusinessObject(objectName, objectInstance);
+	o.getMetaData(onLoadMetaData);
+	mainAccordion.selectedIndex = 0;
+	searchTab.removeAllChildren();
+	listTab.removeAllChildren();
+	editTab.removeAllChildren();
+}
+
+private function onLoadMetaData():void {
+	var objUIHelper:BusinessObjectHelper = new BusinessObjectHelper(a, o);
+	
+	objUIHelper.initSearchForm(searchTab, searchDone);
+	objUIHelper.initListBox(listTab, getDone);
+	objUIHelper.initEditForm(editTab);
+	
+	mainAccordion.selectedIndex = 0;
+
+	mainAccordion.getHeaderAt(0).label = a.getText("SEARCH") + " (" + o.metadata.label + ")";
+	
+	mainAccordion.getHeaderAt(1).label = a.getText("LIST") + " (" + o.metadata.label + ")";
+	mainAccordion.getHeaderAt(1).enabled = false;
+	
+	mainAccordion.getHeaderAt(2).label = a.getText("UPDATE") + " (" + o.metadata.label + ")";
+	mainAccordion.getHeaderAt(2).enabled = false;
+}
+
+public function callJS(val1:String):void {
+	if (ExternalInterface.available) {
+		var ret:Object = ExternalInterface.call("test", val1);
+		Alert.show(ret.val2);
+	} else {
+		Alert.show("Error (call JS): External interface not available");
+	}
+}
+
+private function searchDone():void {
+	mainAccordion.selectedIndex = 1;
+	mainAccordion.getHeaderAt(1).enabled = true;
+}
+
+private function getDone():void {
+	mainAccordion.selectedIndex = 2;
+	mainAccordion.getHeaderAt(2).enabled = true;
+}
+]]></mx:Script>
+
+<mx:Accordion id="mainAccordion" selectedIndex="1" width="100%" height="100%" paddingTop="0" paddingLeft="0" paddingRight="0" paddingBottom="0">
+
+	<mx:Box id="searchTab" width="100%" height="100%" paddingLeft="5" paddingRight="5" paddingTop="5" paddingBottom="5"/>
+	<mx:Box id="listTab" width="100%" height="100%" paddingLeft="5" paddingRight="5" paddingTop="5" paddingBottom="5"/>
+	<mx:Form id="editTab" width="100%" height="100%" paddingLeft="5" paddingRight="5" paddingTop="5" paddingBottom="5"/>
+
+	<mx:VBox id="other" label="Change object and other tests" width="100%" height="100%" paddingLeft="5" paddingRight="5" paddingTop="5" paddingBottom="5">
+		<mx:HBox>
+			<mx:Label text="Object"/>
+			<mx:TextInput id="objectNameInput"/>
+			<mx:Label text="Instance"/>
+			<mx:TextInput id="objectInstInput"/>
+			<mx:Button label="Change object" click="changeObject(objectNameInput.text, objectInstInput.text)"/>
+		</mx:HBox>
+		<mx:HBox>
+			<mx:TextInput id="jsValue" text="Hello"/>
+			<mx:Button label="Call JS function" click="callJS(jsValue.text)"/>
+		</mx:HBox>
+	</mx:VBox>
+
+</mx:Accordion>
+
+</mx:Application>

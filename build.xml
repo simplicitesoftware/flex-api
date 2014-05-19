@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE project>
+
+<project name="simplicite_flex" default="all" basedir=".">
+	
+	<property file="build.properties"/>
+
+	<taskdef resource="flexTasks.tasks" classpath="${FLEX_HOME}/ant/lib/flexTasks.jar"/>
+	
+	<target name="prompt">
+		<input message="File to compile (root name without .mxml extension)" addproperty="file.name"/>
+		<antcall target="mxml_compile"/>
+		<antcall target="html_wrapper"/>
+	</target>
+		
+	<target name="all" description="All" depends="clean,lib,test-appsession,test-businessobject,demo,demo-crosstab,demo-charts,simplicitefx"/>
+	
+	<target name="clean" description="Clean">
+		<delete file="lib/simplicite.swc"/>
+		<delete>
+			<fileset dir="web" includes="*.swf"/>
+			<fileset dir="web" includes="*.html"/>
+		</delete>
+	</target>
+
+	<target name="test-appsession" description="Application session test">
+		<antcall target="mxmlcompile"><param name="file.name" value="AppSessionTest"/></antcall>
+		<antcall target="htmlwrapper"><param name="file.name" value="AppSessionTest"/></antcall>
+	</target>
+
+	<target name="test-appsession-air" description="Run application session test as AIR application">
+		<exec dir="web" executable="${FLEX_HOME}/bin/adl.exe">
+			<arg line="AppSessionTest-AIR.xml"/>
+		</exec>
+	</target>
+	
+	<target name="test-businessobject" description="Business object test">
+		<antcall target="mxmlcompile"><param name="file.name" value="BusinessObjectTest"/></antcall>
+		<antcall target="htmlwrapper"><param name="file.name" value="BusinessObjectTest"/></antcall>
+	</target>
+		
+	<target name="test-businessobject-air" description="Run business object test as AIR application">
+		<exec dir="web" executable="${FLEX_HOME}/bin/adl.exe">
+			<arg line="BusinessObjectTest-AIR.xml"/>
+		</exec>
+	</target>
+	
+	<target name="demo" description="Demo">
+		<antcall target="mxmlcompile"><param name="file.name" value="APP_test_flex"/></antcall>
+		<antcall target="htmlwrapper"><param name="file.name" value="APP_test_flex"/></antcall>
+		<copy file="web/APP_test_flex.swf" todir="${flex.simplicite.project}/web/flash" overwrite="true"/>
+	</target>
+		
+	<target name="demo-charts" description="Charts demo">
+		<antcall target="mxmlcompile"><param name="file.name" value="APP_test_flex_charts"/></antcall>
+		<antcall target="htmlwrapper"><param name="file.name" value="APP_test_flex_charts"/></antcall>
+		<copy file="web/APP_test_flex_charts.swf" todir="${flex.simplicite.project}/web/flash" overwrite="true"/>
+	</target>
+
+	<target name="demo-crosstab" description="Cross table demo">
+		<antcall target="mxmlcompile"><param name="file.name" value="APP_test_flex_crosstab"/></antcall>
+		<antcall target="htmlwrapper"><param name="file.name" value="APP_test_flex_crosstab"/></antcall>
+		<copy file="web/APP_test_flex_crosstab.swf" todir="${flex.simplicite.project}/web/flash" overwrite="true"/>
+	</target>
+		
+	<target name="sys-memory-chart" description="Charts Memory">
+		<antcall target="mxmlcompile"><param name="file.name" value="SYS_chart_memory"/></antcall>
+		<antcall target="htmlwrapper"><param name="file.name" value="SYS_chart_memory"/></antcall>
+		<copy file="web/SYS_chart_memory.swf" todir="${flex.simplicite.project}/web/flash" overwrite="true"/>
+	</target>
+
+	<target name="simplicitefx" description="SimpliciteFX">
+		<antcall target="mxmlcompile"><param name="file.name" value="SimpliciteFX"/></antcall>
+		<antcall target="htmlwrapper"><param name="file.name" value="SimpliciteFX"/></antcall>
+	</target>
+
+	<target name="simplicitefx-install" description="Install as FLEX rich UI in simplicite project">
+		<copy file="web/SimpliciteFX.swf" tofile="${flex.simplicite.project}/web/flash/SYS_main.swf" overwrite="true"/>
+		<copy todir="${flex.simplicite.project}/web/flash/images">
+			<fileset dir="web/images" excludes="**/.cvsignore,**/CVS/**"/>
+		</copy>
+	</target>
+
+	<target name="simplicitefx-devdeploy" description="Deploy SimpliciteFX as web application">
+		<mkdir dir="${jboss.deploydir}/simplicite_flex.war"/>
+		<copy todir="${jboss.deploydir}/simplicite_flex.war">
+			<fileset dir="web" includes="WEB-INF/**,images/**,swfobject/**,SimpliciteFX.*" excludes="**/.cvsignore,**/CVS/**"/>
+		</copy>
+		<move file="${jboss.deploydir}/simplicite_flex.war/SimpliciteFX.html" tofile="${jboss.deploydir}/simplicite_flex.war/index.html"/>
+	</target>
+
+	<target name="simplicitefx-air" description="Run SimpliciteFX as AIR application">
+		<exec dir="web" executable="${FLEX_HOME}/bin/adl.exe">
+			<arg line="SimpliciteFX-AIR.xml"/>
+		</exec>
+	</target>
+
+	<target name="lib" description="Simplicite library">
+		<echo message="Flex home: ${FLEX_HOME}"/>
+		<delete file="lib/simplicite.swc"/>
+		<compc 
+				output="lib/simplicite.swc"
+				include-classes="simplicite.core.Common simplicite.core.AppSession simplicite.core.BusinessObject simplicite.core.BusinessProcess simplicite.ui.CommonHelper simplicite.ui.AppSessionHelper simplicite.ui.BusinessObjectHelper simplicite.ui.BusinessProcessHelper">
+			<source-path path-element="src"/>
+			<compiler.library-path dir="." append="true">
+				<include name="lib" />
+			</compiler.library-path>
+		</compc>
+	</target>
+	
+	<target name="lib-doc" description="Simplicite library documentation">
+		<echo message="Flex home: ${FLEX_HOME}"/>
+		<delete dir="doc/V${flex.simplicite.version}"/>
+		<mkdir dir="doc/V${flex.simplicite.version}"/>
+		<!-- asdoc output="doc/V${flex.simplicite.version}" lenient="true" failonerror="false"> 
+			<library-path/>
+			<doc-sources path-element="src/simplicite/core"/>
+			<external-library-path dir="lib"><include name="as3corelib.swc"/></external-library-path>
+            <external-library-path dir="lib"><include name="flexlib.swc"/></external-library-path>
+        </asdoc --> 
+		<exec executable="${FLEX_HOME}/bin/asdoc.exe" failonerror="true">  
+			<arg line="-source-path ${FLEX_HOME}/frameworks/projects/framework/src"/>
+			<arg line="-library-path+=&quot;${FLEX_HOME}/frameworks/libs/player/11.1&quot;"/>
+			<arg line="-define=CONFIG::performanceInstrumentation,false"/>
+			<arg line="-doc-sources src/simplicite"/> 
+			<arg line="-output doc/V${flex.simplicite.version}"/> 
+			<arg line="-library-path lib"/>
+			<arg line="-window-title &quot;Simplicite&quot;"/>
+			<arg line="-main-title &quot;@LOGO@ version ${flex.simplicite.version}&quot;"/>
+			<arg line="-footer &quot;Copyright ${flex.simplicite.copyright}. All Rights Reserved.&quot;"/>
+		</exec>
+		<copy file="doc/simplicite.png" todir="doc/V${flex.simplicite.version}/images" overwrite="true"/>
+		<replace file="doc/V${flex.simplicite.version}/title-bar.html" token="@LOGO@"><replacevalue><![CDATA[<img src="images/simplicite.png" align="center"/>]]></replacevalue></replace>
+		<zip destfile="doc/asdocSimplicite-${flex.simplicite.version}.zip" update="false">
+			<zipfileset dir="doc/V${flex.simplicite.version}" includes="**"/>
+		</zip>
+	</target>
+		
+	<target name="mxmlcompile">
+		<echo message="Flex home: ${FLEX_HOME}"/>
+		<echo message="Target player: ${TARGET_PLAYER}"/>
+		<delete file="web/${file.name}.swf"/>
+		<mxmlc
+				file="src/${file.name}.mxml"
+				output="web/${file.name}.swf"
+				actionscript-file-encoding="${ENCODING}"
+				target-player="${TARGET_PLAYER}">
+			<load-config filename="${FLEX_HOME}/frameworks/flex-config.xml"/>
+			<source-path path-element="${FLEX_HOME}/frameworks"/>
+			<compiler.library-path dir="${FLEX_HOME}/frameworks" append="true">
+				<include name="libs" />
+				<include name="locale" />
+				<include name="themes" />
+			</compiler.library-path>
+			<compiler.library-path dir="." append="true">
+				<include name="lib" />
+			</compiler.library-path>
+		</mxmlc>
+	</target>
+
+	<target name="htmlwrapper">
+		<copy file="web/swfobject/wrapper.html" tofile="web/${file.name}.html" overwrite="true"/>
+		<replace file="web/${file.name}.html" token="@NAME@" value="${file.name}"/>
+	</target>
+	
+</project>
