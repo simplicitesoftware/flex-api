@@ -7,7 +7,7 @@ Simplicit&eacute;&reg; Adobe Flex&reg; API
 Introduction
 ------------
 
-This is the Adobe&reg; Flex API for the [Simplicit&ecute;&reg; platform](http://www.simplicitesoftware.com).
+This is the Adobe&reg; Flex API for the [Simplicit&eacute;&reg; platform](http://www.simplicitesoftware.com).
 
 License
 -------
